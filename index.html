@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MusicXML 歌詞タイトル書き出しツール</title>
+  <title>リリキュー | LiriCue</title>
   <style>
     :root{
       --bg:#f7f7fb;--panel:#fff;--ink:#18202f;--muted:#64748b;--line:#d8dee9;
@@ -30,7 +30,7 @@
 </head>
 <body>
 <header>
-  <h1>MusicXML 歌詞タイトル書き出しツール</h1>
+  <h1>リリキュー</h1>
   <p class="lead">MusicXML形式の歌唱ファイルから歌詞テロップ用データを書き出します。</p>
 </header>
 <main>
@@ -112,7 +112,7 @@
 <script>
 (() => {
   'use strict';
-  const STORAGE_KEY = 'voisona_lyrics_exporter_state_v2_multipart';
+  const STORAGE_KEY = 'liricue_state_v2_multipart';
   const APP_VERSION = 2;
   const TICKS_PER_QUARTER_DEFAULT = 960;
   const FPS_OPTIONS = {
@@ -182,9 +182,9 @@
   function setStatus(el,text,kind=''){ el.className = 'status' + (kind ? ' '+kind : ''); el.textContent = text; }
   function hideStatus(el){ el.className = 'status hidden'; el.textContent = ''; }
   function showWorkspace(){ els.partsSection.classList.toggle('hidden', state.parts.length === 0); els.exportSection.classList.toggle('hidden', state.parts.length === 0); }
-  function stripVoisonaMarkers(text){ return (text||'').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[%@$]/g,'').replace(/\s+/g,'').trim(); }
+  function stripSourceMarkers(text){ return (text||'').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[%@$]/g,'').replace(/\s+/g,'').trim(); }
   function toHiragana(text){ return (text||'').replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0)-0x60)); }
-  function sanitizeLyric(text){ return toHiragana(stripVoisonaMarkers(text)); }
+  function sanitizeLyric(text){ return toHiragana(stripSourceMarkers(text)); }
   function cleanAutoSplitValue(value){ const n=Number(value); return Number.isFinite(n) && n>=0 ? n : 0.75; }
   function autoSplitLabel(){ const cfg=state.autoSplit || {enabled:false,value:0.75,unit:'beats'}; const unitLabel=cfg.unit==='frames'?'フレーム':(cfg.unit==='seconds'?'秒':'拍'); return cfg.enabled ? `ON / ${cfg.value}${unitLabel}以上` : 'OFF'; }
   function fpsOpt(){ return FPS_OPTIONS[state.fpsKey] || FPS_OPTIONS['60p']; }
@@ -600,8 +600,8 @@
     downloadText(name,text,mime); setStatus(els.exportStatus,`${name} を書き出しました。\n出力件数: ${items.length} / モード: ${mode==='separated'?'パート分け':'まとめ'}`,'ok');
   }
   function makeFileStem(){
-    if(state.parts.length===1) return (state.parts[0].sourceName || state.parts[0].name || 'voisona_lyrics').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|\s]+/g,'_') || 'voisona_lyrics';
-    return 'voisona_lyrics_' + state.parts.length + 'parts';
+    if(state.parts.length===1) return (state.parts[0].sourceName || state.parts[0].name || 'liricue_lyrics').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|\s]+/g,'_') || 'liricue_lyrics';
+    return 'liricue_lyrics_' + state.parts.length + 'parts';
   }
   function outputTextForMode(item,mode,format){
     if(mode==='separated' && (format==='srt' || format==='lrc')) return `${item.partName}：${item.text}`;
@@ -616,7 +616,7 @@
     return exportItems(mode).map((item,i)=>`${i+1}\n${secToSrtTime(secondsFromFrames(item.startFrame))} --> ${secToSrtTime(secondsFromFrames(item.endFrameExclusive))}\n${outputTextForMode(item,mode,'srt')}\n`).join('\n');
   }
   function generateLRC(mode){
-    const header=[`[ti:${makeFileStem()}]`,`[re:Voisona Lyrics Title Exporter]`,`[ve:${APP_VERSION}]`];
+    const header=[`[ti:${makeFileStem()}]`,`[re:LiriCue]`,`[ve:${APP_VERSION}]`];
     const body=exportItems(mode).map(item=>`[${secToLrcTime(secondsFromFrames(item.startFrame))}]${outputTextForMode(item,mode,'lrc').replace(/\r?\n/g,' / ')}`);
     return header.concat(body).join('\r\n')+'\r\n';
   }
@@ -626,7 +626,7 @@
     const titleEffect=target==='resolve' ? '<effect id="r2" name="Basic Title" uid=".../Titles.localized/Basic Title.localized/Basic Title.moti"/>' : '<effect id="r2" name="Basic Title" uid=".../Titles.localized/Bumper:Opener.localized/Basic Title.localized/Basic Title.moti"/>';
     const titles=items.map((item,i)=>{ const text=escXML(item.text); const lane=laneForItem(item,mode); return `              <title ref="r2" lane="${lane}" name="${text || 'Lyrics'}" offset="${frameExpr(item.startFrame)}" start="0s" duration="${frameExpr(item.durationFrames)}">\n                <text>\n                  <text-style ref="ts${i+1}">${text}</text-style>\n                </text>\n                <text-style-def id="ts${i+1}">\n                  <text-style font="Hiragino Sans" fontSize="72" alignment="center"/>\n                </text-style-def>\n              </title>`; }).join('\n');
     const formatName=`FFVideoFormat1080p${fpsOpt().nominal}`;
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE fcpxml>\n<fcpxml version="1.10">\n  <resources>\n    <format id="r1" name="${formatName}" frameDuration="${frameDurationExpr()}" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)"/>\n    ${titleEffect}\n  </resources>\n  <library>\n    <event name="Voisona Lyrics">\n      <project name="${projectName}">\n        <sequence format="r1" duration="${frameExpr(lastEnd)}" tcStart="0s" tcFormat="NDF">\n          <spine>\n            <gap name="Gap" offset="0s" start="0s" duration="${frameExpr(lastEnd)}">\n${titles}\n            </gap>\n          </spine>\n        </sequence>\n      </project>\n    </event>\n  </library>\n</fcpxml>\n`;
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE fcpxml>\n<fcpxml version="1.10">\n  <resources>\n    <format id="r1" name="${formatName}" frameDuration="${frameDurationExpr()}" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)"/>\n    ${titleEffect}\n  </resources>\n  <library>\n    <event name="LiriCue">\n      <project name="${projectName}">\n        <sequence format="r1" duration="${frameExpr(lastEnd)}" tcStart="0s" tcFormat="NDF">\n          <spine>\n            <gap name="Gap" offset="0s" start="0s" duration="${frameExpr(lastEnd)}">\n${titles}\n            </gap>\n          </spine>\n        </sequence>\n      </project>\n    </event>\n  </library>\n</fcpxml>\n`;
   }
   function rateXML(indent='      '){ const f=fpsOpt(); return `${indent}<rate>\n${indent}  <timebase>${f.nominal}</timebase>\n${indent}  <ntsc>${f.ntsc ? 'TRUE' : 'FALSE'}</ntsc>\n${indent}</rate>`; }
   function generatePremiereXML(mode){
