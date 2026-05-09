@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MusicXML 歌詞タイトル書き出しツール（複数パート対応・ペースト整形版）</title>
+  <title>MusicXML 歌詞タイトル書き出しツール</title>
   <style>
     :root{
       --bg:#f7f7fb;--panel:#fff;--ink:#18202f;--muted:#64748b;--line:#d8dee9;
@@ -31,19 +31,18 @@
 <body>
 <header>
   <h1>MusicXML 歌詞タイトル書き出しツール</h1>
-  <p class="lead">AI/API/サーバーなし。MusicXMLなどの歌唱ファイルをブラウザ内で解析し、単独曲・複数人曲の歌詞テロップ用データを書き出します。作業共有はJSONファイルのみです。</p>
+  <p class="lead">MusicXML形式の歌唱ファイルから歌詞テロップ用データを書き出します。</p>
 </header>
 <main>
   <section>
     <h2>1. 歌唱ファイルを読み込む</h2>
     <div id="dropZone" class="drop">
-      <strong>ここに .ccs / .ccst / MusicXML / 作業JSON をドラッグ＆ドロップ</strong>
-      <div class="note">複数ファイルをまとめてドロップすると、前データを消して複数パートとして読み込みます。処理はすべてブラウザ内だけで行います。</div>
+      <strong>ここにMusicXMLをドラッグ&ドロップ</strong>
     </div>
     <div class="row" style="margin-top:12px">
-      <input id="newFileInput" type="file" multiple accept=".ccs,.ccst,.xml,.musicxml,.json,text/xml,application/xml,application/json" />
+      <input id="newFileInput" type="file" multiple accept=".xml,.musicxml,text/xml,application/xml" />
       <button id="addFileBtn" type="button" class="soft">パート追加</button>
-      <input id="addFileInput" class="hidden" type="file" multiple accept=".ccs,.ccst,.xml,.musicxml,text/xml,application/xml" />
+      <input id="addFileInput" class="hidden" type="file" multiple accept=".xml,.musicxml,text/xml,application/xml" />
       <label>FPS <select id="fpsSelect"></select></label>
       <span id="savePill" class="pill">自動保存: 待機中</span>
     </div>
@@ -59,8 +58,8 @@
       </label>
       <button id="reapplyAutoSplitBtn" type="button">現在の設定で自動区切りを再適用</button>
     </div>
-    <p class="note">前の歌詞ノート終了から次の歌詞ノート開始までの空きが指定値以上なら、読み込み時に通常の区切りとして改行を入れます。あとからクリックで編集できます。</p>
-    <div id="loadStatus" class="status" style="margin-top:12px">未読み込みです。</div>
+    <p class="note">前の歌詞ノート終了から次の歌詞ノート開始までの空きが指定値以上なら、読み込み時にあらかじめ区切られます。</p>
+    <div id="loadStatus" class="status hidden" style="margin-top:12px"></div>
   </section>
 
   <section>
@@ -74,11 +73,11 @@
       <button id="resetBtn" class="danger" type="button">リセット</button>
     </div>
     <p class="note">リロードやブックマークからの再訪問では、同じブラウザ内の作業データを復元します。別ブラウザ・別端末で使う場合は作業JSONを保存して読み込んでください。</p>
-    <div id="projectStatus" class="status">作業JSONは未読み込みです。</div>
+    <div id="projectStatus" class="status hidden"></div>
   </section>
 
   <section id="partsSection" class="hidden">
-    <h2>2〜3. パートごとに区切り・表示用歌詞を入力</h2>
+    <h2>2. パートごとに区切り</h2>
     <p class="note">各パートを統合せず、パートごとに独立して編集します。担当パートではない部分は表示用歌詞を空白にしてください。空白行はエクスポートしません。</p>
     <div id="partsContainer"></div>
   </section>
@@ -105,7 +104,7 @@
       </label>
       <button id="exportBtn" class="primary" type="button">選択形式で書き出し</button>
     </div>
-    <p class="note export-note">パート分け出力では、FCPXMLはパートごとに別レーン、Premiere XMLは別トラックにします。SRT/LRCはレーンを持てないため、パート名付き本文として出力します。まとめ出力では全パートの非空行を開始フレーム順に1本化します。</p>
+
     <div id="exportStatus" class="status" style="margin-top:12px">未出力です。</div>
   </section>
 </main>
@@ -181,6 +180,7 @@
   }
 
   function setStatus(el,text,kind=''){ el.className = 'status' + (kind ? ' '+kind : ''); el.textContent = text; }
+  function hideStatus(el){ el.className = 'status hidden'; el.textContent = ''; }
   function showWorkspace(){ els.partsSection.classList.toggle('hidden', state.parts.length === 0); els.exportSection.classList.toggle('hidden', state.parts.length === 0); }
   function stripVoisonaMarkers(text){ return (text||'').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[%@$]/g,'').replace(/\s+/g,'').trim(); }
   function toHiragana(text){ return (text||'').replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0)-0x60)); }
@@ -293,9 +293,8 @@
   }
   function afterPartsLoaded(message){
     clearSelection(); updateAllFrames(); showWorkspace(); renderAll(); markSavedSoon();
-    const summary=state.parts.map(p=>`${p.name}: ${p.tokens.length}トークン`).join('\n');
-    setStatus(els.loadStatus, `${message}\nFPS: ${state.fpsKey}\n自動区切り: ${autoSplitLabel()}\n${summary}`, 'ok');
-    setStatus(els.projectStatus, '作業中です。', '');
+    hideStatus(els.loadStatus);
+    hideStatus(els.projectStatus);
   }
   async function handleProjectFile(file){
     if(!file) return;
@@ -365,21 +364,19 @@
           <div class="part-title">
             <h3 style="margin:0">パート ${partIndex+1}</h3>
             <input class="part-name" type="text" value="${escHTML(part.name)}" aria-label="パート名">
-            <span class="pill">${escHTML(part.sourceName || '-')}</span>
           </div>
           <div class="row">
             <button type="button" class="clear-breaks">区切りを全解除</button>
             <button type="button" class="delete-part danger">このパートを削除</button>
           </div>
         </div>
-        <div class="part-summary"><span class="pill">${escHTML(part.meta.parser || '-')}</span><span class="pill token-count">${part.tokens.length}トークン</span><span class="pill segment-count">${currentSegments(part).length}行</span><span class="pill">テンポ ${escHTML(part.meta.tempo || '-')} BPM</span></div>
         <div class="step-block split-step">
-          <h3>2. 解析した連続歌詞を区切る</h3>
-          <p class="note">歌唱側の文字は編集不可です。「・」をクリックして、表示行の境界だけを指定します。</p>
+          <h3>2. パートごとに区切り</h3>
+          <p class="note">「・」をクリックすると改行ができます。</p>
           <div class="editor token-editor"></div>
         </div>
         <div class="step-block display-step">
-          <h3>3. 表示用歌詞を入力</h3>
+          <h3>3.表示用歌詞を入力</h3>
           <p class="note">入力欄に複数行テキストを貼り付けると、貼り付け先の行から順番に流し込みます。空行は空白として扱い、行数が足りない場合は入る分だけ反映します。</p>
           <h3>表示用歌詞テーブル</h3>
           <div class="table-wrap"><table class="segments-table"><thead><tr><th>行</th><th>歌唱側・編集不可</th><th>開始</th><th>終了</th><th>長さ</th><th>表示用歌詞・編集可</th></tr></thead><tbody></tbody></table></div>
@@ -419,7 +416,7 @@
     const segments=currentSegments(part); const tbody=wrap.querySelector('tbody'); tbody.innerHTML=''; normalizeSelection(segments.length, part.id);
     for(const seg of segments){
       const tr=document.createElement('tr'); tr.dataset.partId=part.id; tr.dataset.line=String(seg.line-1); if(rowSelection.partId===part.id && rowSelection.selected.has(seg.line-1)) tr.classList.add('selected');
-      tr.innerHTML=`<td class="row-index" title="クリックで行選択">${seg.line}</td><td class="singing-cell">${escHTML(seg.singingText)}<div class="small">token ${seg.start+1}〜${seg.end+1}</div></td><td><span class="mono">${seg.startFrame}f</span><br><span class="small mono">${frameToTimecode(seg.startFrame)}</span></td><td><span class="mono">${seg.endFrameExclusive}f</span><br><span class="small mono">${frameToTimecode(seg.endFrameExclusive)}</span><br><span class="small">最終表示 ${seg.endFrameExclusive-1}f</span></td><td><span class="mono">${seg.durationFrames}f</span><br><span class="small">${secondsFromFrames(seg.durationFrames).toFixed(3)}秒</span></td><td><input type="text" value="${escHTML(seg.displayText)}" data-part-id="${part.id}" data-line="${seg.line-1}" placeholder="表示用歌詞を入力。空白なら出力しません"></td>`;
+      tr.innerHTML=`<td class="row-index" title="クリックで行選択">${seg.line}</td><td class="singing-cell">${escHTML(seg.singingText)}</td><td><span class="mono">${seg.startFrame}f</span><br><span class="small mono">${frameToTimecode(seg.startFrame)}</span></td><td><span class="mono">${seg.endFrameExclusive}f</span><br><span class="small mono">${frameToTimecode(seg.endFrameExclusive)}</span><br><span class="small">最終表示 ${seg.endFrameExclusive-1}f</span></td><td><span class="mono">${seg.durationFrames}f</span><br><span class="small">${secondsFromFrames(seg.durationFrames).toFixed(3)}秒</span></td><td><input type="text" value="${escHTML(seg.displayText)}" data-part-id="${part.id}" data-line="${seg.line-1}" placeholder="表示用歌詞を入力。空白なら出力しません"></td>`;
       tr.querySelector('.row-index').addEventListener('click',ev=>selectRow(part.id,seg.line-1,ev));
       tr.addEventListener('click',ev=>{ if(ev.target && ev.target.closest && ev.target.closest('input')) return; if(ev.target && ev.target.classList && ev.target.classList.contains('row-index')) return; selectRow(part.id,seg.line-1,ev); });
       const input=tr.querySelector('input');
@@ -471,7 +468,6 @@
     }else{
       renderPartEditor(wrap,part);
     }
-    const segmentCount=wrap.querySelector('.segment-count'); if(segmentCount) segmentCount.textContent=`${currentSegments(part).length}行`;
     renderPartSegments(wrap,part);
     updateUndoRedoButtons();
   }
@@ -556,7 +552,7 @@
     clearSelection(); state.version=obj.version||APP_VERSION; state.fpsKey=FPS_OPTIONS[obj.fpsKey] ? obj.fpsKey : '60p'; state.exportMode=obj.exportMode||'separated'; state.exportType=obj.exportType||'fcpx'; state.autoSplit=normalizeAutoSplitConfig(obj.autoSplit);
     state.parts=(obj.parts||[]).map(p=>({id:p.id||cryptoRandomId(),name:p.name||guessPartName(p.sourceName||'パート'),sourceName:p.sourceName||'',tokens:p.tokens||[],boundaryAfter:p.boundaryAfter||new Array(Math.max(0,(p.tokens||[]).length-1)).fill(false),displayTexts:p.displayTexts||[''],meta:p.meta||{}}));
     updateAllFrames(); allPartsNormalized(); renderAll(); showWorkspace(); if(!fromHistory){ history.undo.length=0; history.redo.length=0; } updateUndoRedoButtons(); markSavedSoon();
-    setStatus(els.loadStatus, `${message}\nパート数: ${state.parts.length} / FPS: ${state.fpsKey}\n自動区切り: ${autoSplitLabel()}`, 'ok'); setStatus(els.projectStatus, message, 'ok');
+    hideStatus(els.loadStatus); hideStatus(els.projectStatus);
   }
   function markSavedSoon(){
     els.savePill.textContent='自動保存: 保存中…'; clearTimeout(saveTimer); saveTimer=setTimeout(()=>{ try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(projectData())); els.savePill.textContent='自動保存: 保存済み'; }catch(err){ els.savePill.textContent='自動保存: 失敗'; } },300);
