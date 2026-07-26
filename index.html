@@ -103,6 +103,12 @@
           <option value="lrc">歌詞同期用 .lrc</option>
         </select>
       </label>
+      <label id="fcpxTitleEffectLabel">FCPタイトル形式
+        <select id="fcpxTitleEffect">
+          <option value="basicTitle">基本のタイトル</option>
+          <option value="basicText">基本のテキスト</option>
+        </select>
+      </label>
       <button id="exportBtn" class="primary" type="button">選択形式で書き出し</button>
     </div>
 
@@ -124,7 +130,21 @@
     '59.94p':  { label:'59.94p',  num:60000, den:1001, nominal:60, ntsc:true },
     '60p':     { label:'60p',     num:60,    den:1,    nominal:60, ntsc:false }
   };
-  const state = { version:APP_VERSION, fpsKey:'60p', exportMode:'separated', exportType:'fcpx', autoSplit:{enabled:true,value:0.75,unit:'beats'}, parts:[] };
+  const FCP_TITLE_EFFECTS = {
+    basicTitle: {
+      label:'基本のタイトル',
+      name:'Basic Title',
+      finalcutUid:'.../Titles.localized/Bumper:Opener.localized/Basic Title.localized/Basic Title.moti',
+      resolveUid:'.../Titles.localized/Basic Title.localized/Basic Title.moti'
+    },
+    basicText: {
+      label:'基本のテキスト',
+      name:'Basic Text',
+      finalcutUid:'.../Titles.localized/Basic Text.localized/Basic Text.moti',
+      resolveUid:'.../Titles.localized/Basic Title.localized/Basic Title.moti'
+    }
+  };
+  const state = { version:APP_VERSION, fpsKey:'60p', exportMode:'separated', exportType:'fcpx', fcpxTitleEffect:'basicTitle', autoSplit:{enabled:true,value:0.75,unit:'beats'}, parts:[] };
   const history = { undo:[], redo:[] };
   const rowSelection = { partId:null, selected:new Set(), anchor:null, clipboard:[] };
   let saveTimer = null;
@@ -134,7 +154,7 @@
     newFileInput:$('newFileInput'), addFileInput:$('addFileInput'), addFileBtn:$('addFileBtn'), projectInput:$('projectInput'), loadJsonBtn:$('loadJsonBtn'), dropZone:$('dropZone'), fpsSelect:$('fpsSelect'), savePill:$('savePill'), loadStatus:$('loadStatus'),
     partsSection:$('partsSection'), partsContainer:$('partsContainer'), exportSection:$('exportSection'),
     undoBtn:$('undoBtn'), redoBtn:$('redoBtn'), saveJsonBtn:$('saveJsonBtn'), resetBtn:$('resetBtn'), projectStatus:$('projectStatus'),
-    exportMode:$('exportMode'), exportType:$('exportType'), exportBtn:$('exportBtn'), exportStatus:$('exportStatus'), autoSplitEnabled:$('autoSplitEnabled'), autoSplitValue:$('autoSplitValue'), autoSplitUnit:$('autoSplitUnit'), reapplyAutoSplitBtn:$('reapplyAutoSplitBtn')
+    exportMode:$('exportMode'), exportType:$('exportType'), fcpxTitleEffect:$('fcpxTitleEffect'), fcpxTitleEffectLabel:$('fcpxTitleEffectLabel'), exportBtn:$('exportBtn'), exportStatus:$('exportStatus'), autoSplitEnabled:$('autoSplitEnabled'), autoSplitValue:$('autoSplitValue'), autoSplitUnit:$('autoSplitUnit'), reapplyAutoSplitBtn:$('reapplyAutoSplitBtn')
   };
 
   function init(){
@@ -157,7 +177,8 @@
     els.saveJsonBtn.addEventListener('click', () => { downloadText(makeFileStem()+'.project.json', JSON.stringify(projectData(), null, 2), 'application/json'); setStatus(els.projectStatus, '作業JSONを保存しました。', 'ok'); });
     els.resetBtn.addEventListener('click', resetAll);
     els.exportMode.addEventListener('change', () => { state.exportMode = els.exportMode.value; markSavedSoon(); });
-    els.exportType.addEventListener('change', () => { state.exportType = els.exportType.value; markSavedSoon(); });
+    els.exportType.addEventListener('change', () => { state.exportType = els.exportType.value; updateFcpxTitleEffectVisibility(); markSavedSoon(); });
+    els.fcpxTitleEffect.addEventListener('change', () => { state.fcpxTitleEffect = normalizeFcpxTitleEffect(els.fcpxTitleEffect.value); markSavedSoon(); });
     els.exportBtn.addEventListener('click', exportSelected);
     window.addEventListener('keydown', ev => {
       const mod = ev.ctrlKey || ev.metaKey; if (!mod) return;
@@ -188,6 +209,9 @@
   function sanitizeLyric(text){ return toHiragana(stripSourceMarkers(text)); }
   function cleanAutoSplitValue(value){ const n=Number(value); return Number.isFinite(n) && n>=0 ? n : 0.75; }
   function autoSplitLabel(){ const cfg=state.autoSplit || {enabled:false,value:0.75,unit:'beats'}; const unitLabel=cfg.unit==='frames'?'フレーム':(cfg.unit==='seconds'?'秒':'拍'); return cfg.enabled ? `ON / ${cfg.value}${unitLabel}以上` : 'OFF'; }
+  function normalizeFcpxTitleEffect(value){ return FCP_TITLE_EFFECTS[value] ? value : 'basicTitle'; }
+  function fcpxTitleEffectOpt(){ return FCP_TITLE_EFFECTS[normalizeFcpxTitleEffect(state.fcpxTitleEffect)]; }
+  function updateFcpxTitleEffectVisibility(){ els.fcpxTitleEffectLabel.classList.toggle('hidden', els.exportType.value !== 'fcpx'); }
   function fpsOpt(){ return FPS_OPTIONS[state.fpsKey] || FPS_OPTIONS['60p']; }
   function secondsFromFrames(frames){ const f=fpsOpt(); return frames * f.den / f.num; }
   function framesFromSeconds(sec){ const f=fpsOpt(); return Math.round(sec * f.num / f.den); }
@@ -351,6 +375,9 @@
 
   function renderAll(){
     els.fpsSelect.value=state.fpsKey; els.exportMode.value=state.exportMode || 'separated'; els.exportType.value=state.exportType || 'fcpx';
+    state.fcpxTitleEffect = normalizeFcpxTitleEffect(state.fcpxTitleEffect);
+    els.fcpxTitleEffect.value = state.fcpxTitleEffect;
+    updateFcpxTitleEffectVisibility();
     state.autoSplit = normalizeAutoSplitConfig(state.autoSplit);
     els.autoSplitEnabled.checked = !!state.autoSplit.enabled; els.autoSplitValue.value = state.autoSplit.value; els.autoSplitUnit.value = state.autoSplit.unit;
     els.reapplyAutoSplitBtn.disabled = state.parts.length === 0;
@@ -542,15 +569,15 @@
   function updateUndoRedoButtons(){ els.undoBtn.disabled=!history.undo.length; els.redoBtn.disabled=!history.redo.length; }
 
   function projectData(){
-    return {version:APP_VERSION,fpsKey:state.fpsKey,exportMode:state.exportMode||'separated',exportType:state.exportType||'fcpx',autoSplit:normalizeAutoSplitConfig(state.autoSplit),parts:state.parts.map(p=>({id:p.id,name:p.name,sourceName:p.sourceName,tokens:p.tokens,boundaryAfter:p.boundaryAfter,displayTexts:p.displayTexts,meta:p.meta}))};
+    return {version:APP_VERSION,fpsKey:state.fpsKey,exportMode:state.exportMode||'separated',exportType:state.exportType||'fcpx',fcpxTitleEffect:normalizeFcpxTitleEffect(state.fcpxTitleEffect),autoSplit:normalizeAutoSplitConfig(state.autoSplit),parts:state.parts.map(p=>({id:p.id,name:p.name,sourceName:p.sourceName,tokens:p.tokens,boundaryAfter:p.boundaryAfter,displayTexts:p.displayTexts,meta:p.meta}))};
   }
   function hydrateProject(obj,message,fromHistory=false){
     if(!obj || !Array.isArray(obj.parts)){
       if(obj && Array.isArray(obj.tokens)){
-        obj={version:APP_VERSION,fpsKey:obj.fpsKey||'60p',exportMode:'separated',exportType:'fcpx',autoSplit:normalizeAutoSplitConfig(obj.autoSplit),parts:[{id:cryptoRandomId(),name:guessPartName(obj.fileName||'restored'),sourceName:obj.fileName||'restored',tokens:obj.tokens,boundaryAfter:obj.boundaryAfter||[],displayTexts:obj.displayTexts||[],meta:obj.meta||{}}]};
+        obj={version:APP_VERSION,fpsKey:obj.fpsKey||'60p',exportMode:'separated',exportType:'fcpx',fcpxTitleEffect:'basicTitle',autoSplit:normalizeAutoSplitConfig(obj.autoSplit),parts:[{id:cryptoRandomId(),name:guessPartName(obj.fileName||'restored'),sourceName:obj.fileName||'restored',tokens:obj.tokens,boundaryAfter:obj.boundaryAfter||[],displayTexts:obj.displayTexts||[],meta:obj.meta||{}}]};
       } else throw new Error('作業データ形式ではありません。');
     }
-    clearSelection(); state.version=obj.version||APP_VERSION; state.fpsKey=FPS_OPTIONS[obj.fpsKey] ? obj.fpsKey : '60p'; state.exportMode=obj.exportMode||'separated'; state.exportType=obj.exportType||'fcpx'; state.autoSplit=normalizeAutoSplitConfig(obj.autoSplit);
+    clearSelection(); state.version=obj.version||APP_VERSION; state.fpsKey=FPS_OPTIONS[obj.fpsKey] ? obj.fpsKey : '60p'; state.exportMode=obj.exportMode||'separated'; state.exportType=obj.exportType||'fcpx'; state.fcpxTitleEffect=normalizeFcpxTitleEffect(obj.fcpxTitleEffect); state.autoSplit=normalizeAutoSplitConfig(obj.autoSplit);
     state.parts=(obj.parts||[]).map(p=>({id:p.id||cryptoRandomId(),name:p.name||guessPartName(p.sourceName||'パート'),sourceName:p.sourceName||'',tokens:p.tokens||[],boundaryAfter:p.boundaryAfter||new Array(Math.max(0,(p.tokens||[]).length-1)).fill(false),displayTexts:p.displayTexts||[''],meta:p.meta||{}}));
     updateAllFrames(); allPartsNormalized(); renderAll(); showWorkspace(); if(!fromHistory){ history.undo.length=0; history.redo.length=0; } updateUndoRedoButtons(); markSavedSoon();
     hideStatus(els.loadStatus); hideStatus(els.projectStatus);
@@ -560,7 +587,7 @@
   }
   function resetAll(){
     if(!confirm('現在の作業内容をすべて削除します。\nこの操作は元に戻せません。\nリセットしますか？')) return;
-    localStorage.removeItem(STORAGE_KEY); history.undo.length=0; history.redo.length=0; clearSelection(); state.version=APP_VERSION; state.fpsKey='60p'; state.exportMode='separated'; state.exportType='fcpx'; state.autoSplit={enabled:true,value:0.75,unit:'beats'}; state.parts=[]; renderAll();
+    localStorage.removeItem(STORAGE_KEY); history.undo.length=0; history.redo.length=0; clearSelection(); state.version=APP_VERSION; state.fpsKey='60p'; state.exportMode='separated'; state.exportType='fcpx'; state.fcpxTitleEffect='basicTitle'; state.autoSplit={enabled:true,value:0.75,unit:'beats'}; state.parts=[]; renderAll();
     setStatus(els.loadStatus,'未読み込みです。'); setStatus(els.projectStatus,'リセットしました。','ok'); setStatus(els.exportStatus,'未出力です。'); els.savePill.textContent='自動保存: 待機中';
   }
 
@@ -598,7 +625,8 @@
     else if(type==='tsv'){ name=stem+(mode==='separated'?'_parts_check.tsv':'_merged_check.tsv'); text=generateTSV(mode); mime='text/tab-separated-values'; }
     else if(type==='srt'){ name=stem+(mode==='separated'?'_parts.srt':'_merged.srt'); text=generateSRT(mode); mime='application/x-subrip'; }
     else { name=stem+(mode==='separated'?'_parts.lrc':'_merged.lrc'); text=generateLRC(mode); mime='text/plain'; }
-    downloadText(name,text,mime); setStatus(els.exportStatus,`${name} を書き出しました。\n出力件数: ${items.length} / モード: ${mode==='separated'?'パート分け':'まとめ'}`,'ok');
+    const effectInfo = type==='fcpx' ? ` / FCPタイトル形式: ${fcpxTitleEffectOpt().label}` : '';
+    downloadText(name,text,mime); setStatus(els.exportStatus,`${name} を書き出しました。\n出力件数: ${items.length} / モード: ${mode==='separated'?'パート分け':'まとめ'}${effectInfo}`,'ok');
   }
   function makeFileStem(){
     if(state.parts.length===1) return (state.parts[0].sourceName || state.parts[0].name || 'liricue_lyrics').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|\s]+/g,'_') || 'liricue_lyrics';
@@ -624,7 +652,9 @@
   function laneForItem(item,mode){ return mode==='separated' ? item.partIndex + 1 : 1; }
   function generateFCPXML(mode,target){
     const items=exportItems(mode); const lastEnd=Math.max(...items.map(s=>s.endFrameExclusive),1); const projectName=escXML(makeFileStem() + (target==='resolve' ? ' Resolve Lyrics' : ' Final Cut Lyrics'));
-    const titleEffect=target==='resolve' ? '<effect id="r2" name="Basic Title" uid=".../Titles.localized/Basic Title.localized/Basic Title.moti"/>' : '<effect id="r2" name="Basic Title" uid=".../Titles.localized/Bumper:Opener.localized/Basic Title.localized/Basic Title.moti"/>';
+    const selectedEffect = target==='resolve' ? FCP_TITLE_EFFECTS.basicTitle : fcpxTitleEffectOpt();
+    const selectedUid = target==='resolve' ? selectedEffect.resolveUid : selectedEffect.finalcutUid;
+    const titleEffect = `<effect id="r2" name="${escXML(selectedEffect.name)}" uid="${escXML(selectedUid)}"/>`;
     const titles=items.map((item,i)=>{ const text=escXML(item.text); const lane=laneForItem(item,mode); return `              <title ref="r2" lane="${lane}" name="${text || 'Lyrics'}" offset="${frameExpr(item.startFrame)}" start="0s" duration="${frameExpr(item.durationFrames)}">\n                <text>\n                  <text-style ref="ts${i+1}">${text}</text-style>\n                </text>\n                <text-style-def id="ts${i+1}">\n                  <text-style font="Hiragino Sans" fontSize="72" alignment="center"/>\n                </text-style-def>\n              </title>`; }).join('\n');
     const formatName=`FFVideoFormat1080p${fpsOpt().nominal}`;
     return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE fcpxml>\n<fcpxml version="1.10">\n  <resources>\n    <format id="r1" name="${formatName}" frameDuration="${frameDurationExpr()}" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)"/>\n    ${titleEffect}\n  </resources>\n  <library>\n    <event name="LiriCue">\n      <project name="${projectName}">\n        <sequence format="r1" duration="${frameExpr(lastEnd)}" tcStart="0s" tcFormat="NDF">\n          <spine>\n            <gap name="Gap" offset="0s" start="0s" duration="${frameExpr(lastEnd)}">\n${titles}\n            </gap>\n          </spine>\n        </sequence>\n      </project>\n    </event>\n  </library>\n</fcpxml>\n`;
