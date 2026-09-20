@@ -42,6 +42,12 @@
     </div>
     <div class="row" style="margin-top:12px">
       <input id="newFileInput" type="file" multiple accept=".ccs,.ccst,.xml,.musicxml,.json,text/xml,application/xml,application/json" />
+      <label>複数ファイル読込
+        <select id="importMode">
+          <option value="parts">パートごとに読み込む</option>
+          <option value="mergedPriority">1つに統合（先のファイル優先）</option>
+        </select>
+      </label>
       <button id="addFileBtn" type="button" class="soft">パート追加</button>
       <input id="addFileInput" class="hidden" type="file" multiple accept=".ccs,.ccst,.xml,.musicxml,text/xml,application/xml" />
       <label>FPS <select id="fpsSelect"></select></label>
@@ -124,14 +130,14 @@
     '59.94p':  { label:'59.94p',  num:60000, den:1001, nominal:60, ntsc:true },
     '60p':     { label:'60p',     num:60,    den:1,    nominal:60, ntsc:false }
   };
-  const state = { version:APP_VERSION, fpsKey:'60p', exportMode:'separated', exportType:'fcpx', autoSplit:{enabled:true,value:0.75,unit:'beats'}, parts:[] };
+  const state = { version:APP_VERSION, fpsKey:'60p', importMode:'parts', exportMode:'separated', exportType:'fcpx', autoSplit:{enabled:true,value:0.75,unit:'beats'}, parts:[] };
   const history = { undo:[], redo:[] };
   const rowSelection = { partId:null, selected:new Set(), anchor:null, clipboard:[] };
   let saveTimer = null;
 
   const $ = id => document.getElementById(id);
   const els = {
-    newFileInput:$('newFileInput'), addFileInput:$('addFileInput'), addFileBtn:$('addFileBtn'), projectInput:$('projectInput'), loadJsonBtn:$('loadJsonBtn'), dropZone:$('dropZone'), fpsSelect:$('fpsSelect'), savePill:$('savePill'), loadStatus:$('loadStatus'),
+    newFileInput:$('newFileInput'), importMode:$('importMode'), addFileInput:$('addFileInput'), addFileBtn:$('addFileBtn'), projectInput:$('projectInput'), loadJsonBtn:$('loadJsonBtn'), dropZone:$('dropZone'), fpsSelect:$('fpsSelect'), savePill:$('savePill'), loadStatus:$('loadStatus'),
     partsSection:$('partsSection'), partsContainer:$('partsContainer'), exportSection:$('exportSection'),
     undoBtn:$('undoBtn'), redoBtn:$('redoBtn'), saveJsonBtn:$('saveJsonBtn'), resetBtn:$('resetBtn'), projectStatus:$('projectStatus'),
     exportMode:$('exportMode'), exportType:$('exportType'), exportBtn:$('exportBtn'), exportStatus:$('exportStatus'), autoSplitEnabled:$('autoSplitEnabled'), autoSplitValue:$('autoSplitValue'), autoSplitUnit:$('autoSplitUnit'), reapplyAutoSplitBtn:$('reapplyAutoSplitBtn')
@@ -144,6 +150,7 @@
 
   function bindEvents(){
     els.newFileInput.addEventListener('change', () => handleNewFiles(els.newFileInput.files));
+    els.importMode.addEventListener('change', () => { state.importMode = els.importMode.value; markSavedSoon(); });
     els.addFileBtn.addEventListener('click', () => els.addFileInput.click());
     els.addFileInput.addEventListener('change', () => handleAddFiles(els.addFileInput.files));
     els.projectInput.addEventListener('change', () => handleProjectFile(els.projectInput.files && els.projectInput.files[0]));
@@ -228,10 +235,23 @@
     const doc=new DOMParser().parseFromString(xmlText,'application/xml'); if(doc.querySelector('parsererror')) throw new Error('MusicXMLとして読み込めませんでした。');
     const part=doc.querySelector('part'); if(!part) throw new Error('MusicXML内に part が見つかりませんでした。');
     let divisions=Number(doc.querySelector('divisions')?.textContent || TICKS_PER_QUARTER_DEFAULT); if(!Number.isFinite(divisions)||divisions<=0) divisions=TICKS_PER_QUARTER_DEFAULT;
-    let clock=0; const tempoEvents=[]; const rawNotes=[]; let openTieToken=null;
+    let clock=0; const tempoEvents=[]; const rawNotes=[]; let openTieToken=null; let openExtendToken=null;
     const hasTieStart = note => Array.from(note.querySelectorAll('tie, tied')).some(el => el.getAttribute('type') === 'start');
     const hasTieStop = note => Array.from(note.querySelectorAll('tie, tied')).some(el => el.getAttribute('type') === 'stop');
-    const lyricTextOf = note => Array.from(note.querySelectorAll('lyric text')).map(el => sanitizeLyric(el.textContent || '')).find(Boolean) || '';
+    const lyricInfoOf = note => {
+      const lyrics=Array.from(note.querySelectorAll('lyric'));
+      for(const lyric of lyrics){
+        const text=Array.from(lyric.querySelectorAll('text')).map(el=>sanitizeLyric(el.textContent||'')).find(Boolean)||'';
+        const extend=lyric.querySelector('extend');
+        if(text || extend) return {text, hasExtend:!!extend, extendType:extend?.getAttribute('type')||''};
+      }
+      return {text:'',hasExtend:false,extendType:''};
+    };
+    const extendTokenThrough = (rec,startClock,duration) => {
+      if(!rec) return;
+      const endClock=startClock+duration;
+      rec.duration=Math.max(rec.duration,endClock-rec.clock);
+    };
     const measures=Array.from(part.children).filter(el=>el.tagName==='measure');
     for(const measure of measures){
       for(const el of Array.from(measure.children)){
@@ -242,15 +262,25 @@
         if(el.tagName==='forward') clock+=Number(el.querySelector('duration')?.textContent||0);
         if(el.tagName==='note'){
           const isChord=!!el.querySelector('chord'); const duration=Number(el.querySelector('duration')?.textContent||0); const startClock=clock;
-          const text=lyricTextOf(el); const tieStart=hasTieStart(el); const tieStop=hasTieStop(el); const isRest=!!el.querySelector('rest');
+          const lyric=lyricInfoOf(el); const text=lyric.text; const tieStart=hasTieStart(el); const tieStop=hasTieStop(el); const isRest=!!el.querySelector('rest');
           if(text){
             const rec={text,rawText:text,clock:startClock,duration}; rawNotes.push(rec);
             openTieToken = (!isRest && tieStart) ? rec : null;
-          } else if(openTieToken && !isRest && (tieStop || tieStart)){
-            openTieToken.duration += duration;
-            if(!tieStart) openTieToken = null;
-          } else if(!tieStart && !tieStop) {
-            openTieToken = null;
+            openExtendToken = (!isRest && lyric.hasExtend && lyric.extendType!=='stop') ? rec : null;
+          } else if(!isRest){
+            if(openTieToken && (tieStop || tieStart)){
+              extendTokenThrough(openTieToken,startClock,duration);
+              if(!tieStart) openTieToken=null;
+            } else if(!tieStart && !tieStop){
+              openTieToken=null;
+            }
+            if(openExtendToken){
+              extendTokenThrough(openExtendToken,startClock,duration);
+              if(lyric.hasExtend && lyric.extendType==='stop') openExtendToken=null;
+            }
+          } else {
+            openTieToken=null;
+            openExtendToken=null;
           }
           if(!isChord) clock+=duration;
         }
@@ -272,6 +302,27 @@
   }
   function cryptoRandomId(){ return 'p' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
   function guessPartName(fileName){ return (fileName||'パート').replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').trim() || 'パート'; }
+  function mergePartsByPriority(parts){
+    if(!parts.length) return {part:null,dropped:0};
+    const kept=[]; const occupied=[]; let dropped=0;
+    const overlaps=(token,range)=> (token.startSeconds < range.endSeconds-1e-9) && (token.endSeconds > range.startSeconds+1e-9);
+    parts.forEach((part,fileIndex)=>{
+      const priorOccupied=occupied.slice();
+      for(const token of part.tokens){
+        if(priorOccupied.some(range=>overlaps(token,range))){ dropped++; continue; }
+        kept.push({...token,_fileIndex:fileIndex});
+      }
+      part.tokens.forEach(token=>occupied.push({startSeconds:token.startSeconds,endSeconds:token.endSeconds}));
+    });
+    kept.sort((a,b)=>a.startSeconds-b.startSeconds || a._fileIndex-b._fileIndex || a.index-b.index);
+    kept.forEach((token,index)=>{ token.index=index; delete token._fileIndex; });
+    const first=parts[0];
+    const names=parts.map(p=>p.sourceName||p.name).filter(Boolean);
+    const sourceName=(names[0]||'merged').replace(/\.[^.]+$/,'')+'_merged.musicxml';
+    const part={id:cryptoRandomId(),name:'統合',sourceName,tokens:kept,boundaryAfter:new Array(Math.max(0,kept.length-1)).fill(false),displayTexts:[''],meta:{...(first.meta||{}),parser:(first.meta?.parser||'MusicXML')+' / priority merged',mergedSources:names}};
+    updatePartFrames(part); applyAutoSplitToPart(part); normalizeDisplayArray(part);
+    return {part,dropped};
+  }
 
   async function handleDroppedFiles(fileList){
     const files=Array.from(fileList||[]); if(!files.length) return;
@@ -281,7 +332,18 @@
   async function handleNewFiles(fileList){
     const files=Array.from(fileList||[]); if(!files.length) return;
     if(files.length===1 && /\.json$/i.test(files[0].name)) return handleProjectFile(files[0]);
-    try{ pushHistory(); const parts=[]; for(const file of files){ if(/\.json$/i.test(file.name)) continue; parts.push(await parseFile(file)); } state.parts=parts; afterPartsLoaded(`新規読み込み完了: ${parts.length}パート`); }
+    try{
+      pushHistory();
+      const parts=[]; for(const file of files){ if(/\.json$/i.test(file.name)) continue; parts.push(await parseFile(file)); }
+      if((state.importMode||'parts')==='mergedPriority' && parts.length>1){
+        const merged=mergePartsByPriority(parts);
+        state.parts=merged.part ? [merged.part] : [];
+        afterPartsLoaded(`新規読み込み完了: ${parts.length}ファイルを1パートに統合 / 重複で除外 ${merged.dropped}トークン`);
+      }else{
+        state.parts=parts;
+        afterPartsLoaded(`新規読み込み完了: ${parts.length}パート`);
+      }
+    }
     catch(err){ console.error(err); setStatus(els.loadStatus,'読み込みに失敗しました。\n'+(err.message||err),'err'); }
     finally{ els.newFileInput.value=''; }
   }
@@ -337,7 +399,7 @@
     for(let i=0;i<part.tokens.length;i++){ if(i===part.tokens.length-1 || part.boundaryAfter[i]){ ranges.push({start,end:i}); start=i+1; } }
     return ranges.map((seg,idx)=>{
       const singingText=part.tokens.slice(seg.start,seg.end+1).map(t=>t.text).join('');
-      const startFrame=part.tokens[seg.start].startFrame; const next=ranges[idx+1]; const endFrameExclusive=next ? part.tokens[next.start].startFrame : part.tokens[seg.end].endFrame;
+      const startFrame=part.tokens[seg.start].startFrame; const endFrameExclusive=part.tokens[seg.end].endFrame;
       return {...seg,line:idx+1,singingText,startFrame,endFrameExclusive,durationFrames:Math.max(1,endFrameExclusive-startFrame),displayText:part.displayTexts[idx] ?? ''};
     });
   }
@@ -350,7 +412,7 @@
   }
 
   function renderAll(){
-    els.fpsSelect.value=state.fpsKey; els.exportMode.value=state.exportMode || 'separated'; els.exportType.value=state.exportType || 'fcpx';
+    els.fpsSelect.value=state.fpsKey; els.importMode.value=state.importMode || 'parts'; els.exportMode.value=state.exportMode || 'separated'; els.exportType.value=state.exportType || 'fcpx';
     state.autoSplit = normalizeAutoSplitConfig(state.autoSplit);
     els.autoSplitEnabled.checked = !!state.autoSplit.enabled; els.autoSplitValue.value = state.autoSplit.value; els.autoSplitUnit.value = state.autoSplit.unit;
     els.reapplyAutoSplitBtn.disabled = state.parts.length === 0;
@@ -421,7 +483,7 @@
     const segments=currentSegments(part); const tbody=wrap.querySelector('tbody'); tbody.innerHTML=''; normalizeSelection(segments.length, part.id);
     for(const seg of segments){
       const tr=document.createElement('tr'); tr.dataset.partId=part.id; tr.dataset.line=String(seg.line-1); if(rowSelection.partId===part.id && rowSelection.selected.has(seg.line-1)) tr.classList.add('selected');
-      tr.innerHTML=`<td class="row-index" title="クリックで行選択">${seg.line}</td><td><button type="button" class="merge-row" data-part-id="${part.id}" data-line="${seg.line-1}" disabled>統合</button></td><td class="singing-cell"><span class="singing-caret" contenteditable="true" spellcheck="false" role="textbox" aria-label="歌唱側歌詞。トークン境界にカーソルを置いてEnterで分割" data-part-id="${part.id}" data-line="${seg.line-1}">${escHTML(seg.singingText)}</span><div class="small">token ${seg.start+1}〜${seg.end+1}</div></td><td><span class="mono">${seg.startFrame}f</span><br><span class="small mono">${frameToTimecode(seg.startFrame)}</span></td><td><span class="mono">${seg.endFrameExclusive}f</span><br><span class="small mono">${frameToTimecode(seg.endFrameExclusive)}</span><br><span class="small">最終表示 ${seg.endFrameExclusive-1}f</span></td><td><span class="mono">${seg.durationFrames}f</span><br><span class="small">${secondsFromFrames(seg.durationFrames).toFixed(3)}秒</span></td><td><input type="text" value="${escHTML(seg.displayText)}" data-part-id="${part.id}" data-line="${seg.line-1}" placeholder="表示用歌詞を入力。空白なら出力しません"></td>`;
+      tr.innerHTML=`<td class="row-index" title="クリックで行選択">${seg.line}</td><td><button type="button" class="merge-row" data-part-id="${part.id}" data-line="${seg.line-1}" disabled>統合</button></td><td class="singing-cell"><span class="singing-caret" contenteditable="true" tabindex="-1" spellcheck="false" role="textbox" aria-label="歌唱側歌詞。トークン境界にカーソルを置いてEnterで分割" data-part-id="${part.id}" data-line="${seg.line-1}">${escHTML(seg.singingText)}</span><div class="small">token ${seg.start+1}〜${seg.end+1}</div></td><td><span class="mono">${seg.startFrame}f</span><br><span class="small mono">${frameToTimecode(seg.startFrame)}</span></td><td><span class="mono">${seg.endFrameExclusive}f</span><br><span class="small mono">${frameToTimecode(seg.endFrameExclusive)}</span><br><span class="small">最終表示 ${seg.endFrameExclusive-1}f</span></td><td><span class="mono">${seg.durationFrames}f</span><br><span class="small">${secondsFromFrames(seg.durationFrames).toFixed(3)}秒</span></td><td><input type="text" value="${escHTML(seg.displayText)}" data-part-id="${part.id}" data-line="${seg.line-1}" placeholder="表示用歌詞を入力。空白なら出力しません"></td>`;
       tr.querySelector('.row-index').addEventListener('click',ev=>selectRow(part.id,seg.line-1,ev));
       const mergeBtn=tr.querySelector('.merge-row');
       mergeBtn.addEventListener('click',ev=>{ ev.preventDefault(); ev.stopPropagation(); mergeSelectedRows(part); });
@@ -481,9 +543,10 @@
       return;
     }
     const lineIndex=seg.line-1;
+    const originalDisplay=part.displayTexts[lineIndex] ?? '';
     pushHistory();
     part.boundaryAfter[boundaryIndex]=true;
-    part.displayTexts.splice(lineIndex,1,'','');
+    part.displayTexts.splice(lineIndex,1,originalDisplay,'');
     clearSelection();
     const targetWrap=partWrap(part.id);
     if(targetWrap){
@@ -492,7 +555,7 @@
       renderPartSegments(targetWrap,part);
     }else renderAll();
     markSavedSoon();
-    setStatus(els.projectStatus,'カーソル位置で行を分割しました。表示用歌詞は空白になりました。','ok');
+    setStatus(els.projectStatus,'カーソル位置で行を分割しました。元の表示用歌詞は前半行に残しています。','ok');
   }
 
   function selectedRowIndices(partId){
@@ -653,15 +716,15 @@
   function updateUndoRedoButtons(){ els.undoBtn.disabled=!history.undo.length; els.redoBtn.disabled=!history.redo.length; }
 
   function projectData(){
-    return {version:APP_VERSION,fpsKey:state.fpsKey,exportMode:state.exportMode||'separated',exportType:state.exportType||'fcpx',autoSplit:normalizeAutoSplitConfig(state.autoSplit),parts:state.parts.map(p=>({id:p.id,name:p.name,sourceName:p.sourceName,tokens:p.tokens,boundaryAfter:p.boundaryAfter,displayTexts:p.displayTexts,meta:p.meta}))};
+    return {version:APP_VERSION,fpsKey:state.fpsKey,importMode:state.importMode||'parts',exportMode:state.exportMode||'separated',exportType:state.exportType||'fcpx',autoSplit:normalizeAutoSplitConfig(state.autoSplit),parts:state.parts.map(p=>({id:p.id,name:p.name,sourceName:p.sourceName,tokens:p.tokens,boundaryAfter:p.boundaryAfter,displayTexts:p.displayTexts,meta:p.meta}))};
   }
   function hydrateProject(obj,message,fromHistory=false){
     if(!obj || !Array.isArray(obj.parts)){
       if(obj && Array.isArray(obj.tokens)){
-        obj={version:APP_VERSION,fpsKey:obj.fpsKey||'60p',exportMode:'separated',exportType:'fcpx',autoSplit:normalizeAutoSplitConfig(obj.autoSplit),parts:[{id:cryptoRandomId(),name:guessPartName(obj.fileName||'restored'),sourceName:obj.fileName||'restored',tokens:obj.tokens,boundaryAfter:obj.boundaryAfter||[],displayTexts:obj.displayTexts||[],meta:obj.meta||{}}]};
+        obj={version:APP_VERSION,fpsKey:obj.fpsKey||'60p',importMode:'parts',exportMode:'separated',exportType:'fcpx',autoSplit:normalizeAutoSplitConfig(obj.autoSplit),parts:[{id:cryptoRandomId(),name:guessPartName(obj.fileName||'restored'),sourceName:obj.fileName||'restored',tokens:obj.tokens,boundaryAfter:obj.boundaryAfter||[],displayTexts:obj.displayTexts||[],meta:obj.meta||{}}]};
       } else throw new Error('作業データ形式ではありません。');
     }
-    clearSelection(); state.version=obj.version||APP_VERSION; state.fpsKey=FPS_OPTIONS[obj.fpsKey] ? obj.fpsKey : '60p'; state.exportMode=obj.exportMode||'separated'; state.exportType=obj.exportType||'fcpx'; state.autoSplit=normalizeAutoSplitConfig(obj.autoSplit);
+    clearSelection(); state.version=obj.version||APP_VERSION; state.fpsKey=FPS_OPTIONS[obj.fpsKey] ? obj.fpsKey : '60p'; state.importMode=obj.importMode==='mergedPriority'?'mergedPriority':'parts'; state.exportMode=obj.exportMode||'separated'; state.exportType=obj.exportType||'fcpx'; state.autoSplit=normalizeAutoSplitConfig(obj.autoSplit);
     state.parts=(obj.parts||[]).map(p=>({id:p.id||cryptoRandomId(),name:p.name||guessPartName(p.sourceName||'パート'),sourceName:p.sourceName||'',tokens:p.tokens||[],boundaryAfter:p.boundaryAfter||new Array(Math.max(0,(p.tokens||[]).length-1)).fill(false),displayTexts:p.displayTexts||[''],meta:p.meta||{}}));
     updateAllFrames(); allPartsNormalized(); renderAll(); showWorkspace(); if(!fromHistory){ history.undo.length=0; history.redo.length=0; } updateUndoRedoButtons(); markSavedSoon();
     setStatus(els.loadStatus, `${message}\nパート数: ${state.parts.length} / FPS: ${state.fpsKey}\n自動区切り: ${autoSplitLabel()}`, 'ok'); setStatus(els.projectStatus, message, 'ok');
@@ -671,7 +734,7 @@
   }
   function resetAll(){
     if(!confirm('現在の作業内容をすべて削除します。\nこの操作は元に戻せません。\nリセットしますか？')) return;
-    localStorage.removeItem(STORAGE_KEY); history.undo.length=0; history.redo.length=0; clearSelection(); state.version=APP_VERSION; state.fpsKey='60p'; state.exportMode='separated'; state.exportType='fcpx'; state.autoSplit={enabled:true,value:0.75,unit:'beats'}; state.parts=[]; renderAll();
+    localStorage.removeItem(STORAGE_KEY); history.undo.length=0; history.redo.length=0; clearSelection(); state.version=APP_VERSION; state.fpsKey='60p'; state.importMode='parts'; state.exportMode='separated'; state.exportType='fcpx'; state.autoSplit={enabled:true,value:0.75,unit:'beats'}; state.parts=[]; renderAll();
     setStatus(els.loadStatus,'未読み込みです。'); setStatus(els.projectStatus,'リセットしました。','ok'); setStatus(els.exportStatus,'未出力です。'); els.savePill.textContent='自動保存: 待機中';
   }
 
@@ -695,7 +758,7 @@
     return groups.map((g,i)=>{
       const seen=new Set(); const texts=[]; const partNames=[];
       g.items.forEach(it=>{ const k=it.text.trim(); if(k && !seen.has(k)){ seen.add(k); texts.push(it.text); } if(!partNames.includes(it.partName)) partNames.push(it.partName); });
-      const next=groups[i+1]; const end=next ? Math.max(g.startFrame+1,next.startFrame) : Math.max(g.startFrame+1,g.endFrameOriginal);
+      const end=Math.max(g.startFrame+1,g.endFrameOriginal);
       return {partId:'merged',partName:partNames.join(', '),partIndex:0,line:i+1,text:texts.join('\n'),singingText:g.items.map(it=>it.singingText).join(' / '),startFrame:g.startFrame,endFrameExclusive:end,durationFrames:Math.max(1,end-g.startFrame),sourceItems:g.items};
     });
   }
@@ -738,7 +801,7 @@
     const titleEffect=target==='resolve' ? '<effect id="r2" name="Basic Title" uid=".../Titles.localized/Basic Title.localized/Basic Title.moti"/>' : '<effect id="r2" name="Basic Title" uid=".../Titles.localized/Bumper:Opener.localized/Basic Title.localized/Basic Title.moti"/>';
     const titles=items.map((item,i)=>{ const text=escXML(item.text); const lane=laneForItem(item,mode); return `              <title ref="r2" lane="${lane}" name="${text || 'Lyrics'}" offset="${frameExpr(item.startFrame)}" start="0s" duration="${frameExpr(item.durationFrames)}">\n                <text>\n                  <text-style ref="ts${i+1}">${text}</text-style>\n                </text>\n                <text-style-def id="ts${i+1}">\n                  <text-style font="Hiragino Sans" fontSize="72" alignment="center"/>\n                </text-style-def>\n              </title>`; }).join('\n');
     const formatName=`FFVideoFormat1080p${fpsOpt().nominal}`;
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE fcpxml>\n<fcpxml version="1.10">\n  <resources>\n    <format id="r1" name="${formatName}" frameDuration="${frameDurationExpr()}" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)"/>\n    ${titleEffect}\n  </resources>\n  <library>\n    <event name="Voisona Lyrics">\n      <project name="${projectName}">\n        <sequence format="r1" duration="${frameExpr(lastEnd)}" tcStart="0s" tcFormat="NDF">\n          <spine>\n            <gap name="Gap" offset="0s" start="0s" duration="${frameExpr(lastEnd)}">\n${titles}\n            </gap>\n          </spine>\n        </sequence>\n      </project>\n    </event>\n  </library>\n</fcpxml>\n`;
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE fcpxml>\n<fcpxml version="1.10">\n  <resources>\n    <format id="r1" name="${formatName}" frameDuration="${frameDurationExpr()}" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)"/>\n    ${titleEffect}\n  </resources>\n  <library>\n    <event name="LiriCue">\n      <project name="${projectName}">\n        <sequence format="r1" duration="${frameExpr(lastEnd)}" tcStart="0s" tcFormat="NDF">\n          <spine>\n            <gap name="Gap" offset="0s" start="0s" duration="${frameExpr(lastEnd)}">\n${titles}\n            </gap>\n          </spine>\n        </sequence>\n      </project>\n    </event>\n  </library>\n</fcpxml>\n`;
   }
   function rateXML(indent='      '){ const f=fpsOpt(); return `${indent}<rate>\n${indent}  <timebase>${f.nominal}</timebase>\n${indent}  <ntsc>${f.ntsc ? 'TRUE' : 'FALSE'}</ntsc>\n${indent}</rate>`; }
   function generatePremiereXML(mode){
