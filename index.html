@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>リリキュー | LiriCue</title>
+  <title>MusicXML 歌詞タイトル書き出しツール（複数パート対応・ペースト整形版）</title>
   <style>
     :root{
       --bg:#f7f7fb;--panel:#fff;--ink:#18202f;--muted:#64748b;--line:#d8dee9;
@@ -14,7 +14,7 @@
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.65}
     header{padding:28px 24px 18px;background:linear-gradient(135deg,#eef2ff,#f8fafc);border-bottom:1px solid var(--line)}
-    h1{margin:0 0 8px;font-size:24px;letter-spacing:.02em}.lead{margin:0;color:var(--muted)}.help-link{margin:12px 0 0}.help-link a{display:inline-flex;align-items:center;gap:6px;border:1px solid #bfdbfe;background:var(--soft);color:var(--accent2);border-radius:999px;padding:6px 12px;text-decoration:none;font-size:14px;font-weight:600}.help-link a:hover{border-color:#93c5fd;background:#eff6ff}
+    h1{margin:0 0 8px;font-size:24px;letter-spacing:.02em}.lead{margin:0;color:var(--muted)}
     main{max-width:1280px;margin:0 auto;padding:22px}
     section,.part{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:18px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
     .part{border-left:6px solid var(--accent)}
@@ -25,25 +25,25 @@
     .status{padding:10px 12px;border-radius:12px;background:#f8fafc;border:1px solid var(--line);font-size:14px;white-space:pre-wrap}.status.ok{background:#ecfdf5;border-color:#a7f3d0;color:var(--ok)}.status.warn{background:#fffbeb;border-color:#fde68a;color:var(--warn)}.status.err{background:#fef2f2;border-color:#fecaca;color:var(--danger)}
     .drop{border:2px dashed #cbd5e1;background:#fbfdff;border-radius:16px;padding:22px;text-align:center;transition:.15s}.drop.drag{border-color:var(--accent);background:#eff6ff}.drop strong{display:block;font-size:15px}.hidden{display:none!important}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}@media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr}}
     .editor{border:1px solid var(--line);border-radius:14px;background:#fbfdff;padding:14px;max-height:360px;overflow:auto;font-size:17px;line-height:2.35;word-break:keep-all;overflow-wrap:anywhere}.token{display:inline-block;padding:0 1px;border-radius:4px}.gap{display:inline-flex;align-items:center;justify-content:center;width:18px;height:22px;margin:0 1px;border-radius:6px;border:1px solid transparent;color:#94a3b8;cursor:pointer;user-select:none;font-size:12px;vertical-align:1px}.gap:hover{border-color:#bfdbfe;background:#eff6ff;color:#1d4ed8}.gap.active{width:auto;min-width:34px;padding:0 6px;background:#dbeafe;border-color:#60a5fa;color:#1d4ed8;font-weight:700}.gap.active::after{content:"改行"}.gap:not(.active)::after{content:"・"}.break-line{display:block;height:0}
-    .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}table{width:100%;border-collapse:collapse;min-width:1080px;background:#fff}th,td{border-bottom:1px solid var(--line);padding:9px 10px;vertical-align:top}th{background:#f8fafc;text-align:left;white-space:nowrap;font-size:13px;color:#475569}td{font-size:14px}tr:last-child td{border-bottom:0}.singing-cell{font-family:var(--mono);white-space:normal;word-break:break-all}.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:12px;border:1px solid #e2e8f0}.segments-table tr.selected td{background:#eff6ff}.row-index{cursor:pointer;user-select:none;font-weight:700;color:#1d4ed8}.row-index:hover{text-decoration:underline}.part-head{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.part-title{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.part-name{width:260px}.part-summary{display:flex;gap:8px;flex-wrap:wrap}.step-block{border:1px solid var(--line);border-radius:14px;background:#fbfdff;padding:14px;margin-top:14px}.step-block h3{margin-top:0}.step-block.display-step{background:#fff}.export-note{margin-top:8px}.kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--line);background:#f8fafc;border-radius:5px;padding:1px 5px}
+    .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}table{width:100%;border-collapse:collapse;min-width:1080px;background:#fff}th,td{border-bottom:1px solid var(--line);padding:9px 10px;vertical-align:top}th{background:#f8fafc;text-align:left;white-space:nowrap;font-size:13px;color:#475569}td{font-size:14px}tr:last-child td{border-bottom:0}.singing-cell{font-family:var(--mono);white-space:normal;word-break:break-all}.singing-caret{display:inline;outline:none;cursor:text;caret-color:var(--accent)}.singing-caret:focus{background:#f8fafc;border-radius:4px}.merge-row{white-space:nowrap;padding:6px 10px}.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:12px;border:1px solid #e2e8f0}.segments-table tr.selected td{background:#eff6ff}.row-index{cursor:pointer;user-select:none;font-weight:700;color:#1d4ed8}.row-index:hover{text-decoration:underline}.part-head{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.part-title{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.part-name{width:260px}.part-summary{display:flex;gap:8px;flex-wrap:wrap}.step-block{border:1px solid var(--line);border-radius:14px;background:#fbfdff;padding:14px;margin-top:14px}.step-block h3{margin-top:0}.step-block.display-step{background:#fff}.export-note{margin-top:8px}.kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--line);background:#f8fafc;border-radius:5px;padding:1px 5px}
   </style>
 </head>
 <body>
 <header>
-  <h1>リリキュー</h1>
-  <p class="lead">MusicXML形式の歌唱ファイルから歌詞テロップ用データを書き出します。</p>
-  <p class="help-link"><a href="https://sites.google.com/view/howtoliricue" target="_blank" rel="noopener noreferrer">使い方を見る</a></p>
+  <h1>MusicXML 歌詞タイトル書き出しツール</h1>
+  <p class="lead">AI/API/サーバーなし。MusicXMLなどの歌唱ファイルをブラウザ内で解析し、単独曲・複数人曲の歌詞テロップ用データを書き出します。作業共有はJSONファイルのみです。</p>
 </header>
 <main>
   <section>
     <h2>1. 歌唱ファイルを読み込む</h2>
     <div id="dropZone" class="drop">
-      <strong>ここにMusicXMLをドラッグ&ドロップ</strong>
+      <strong>ここに .ccs / .ccst / MusicXML / 作業JSON をドラッグ＆ドロップ</strong>
+      <div class="note">複数ファイルをまとめてドロップすると、前データを消して複数パートとして読み込みます。処理はすべてブラウザ内だけで行います。</div>
     </div>
     <div class="row" style="margin-top:12px">
-      <input id="newFileInput" type="file" multiple accept=".xml,.musicxml,text/xml,application/xml" />
+      <input id="newFileInput" type="file" multiple accept=".ccs,.ccst,.xml,.musicxml,.json,text/xml,application/xml,application/json" />
       <button id="addFileBtn" type="button" class="soft">パート追加</button>
-      <input id="addFileInput" class="hidden" type="file" multiple accept=".xml,.musicxml,text/xml,application/xml" />
+      <input id="addFileInput" class="hidden" type="file" multiple accept=".ccs,.ccst,.xml,.musicxml,text/xml,application/xml" />
       <label>FPS <select id="fpsSelect"></select></label>
       <span id="savePill" class="pill">自動保存: 待機中</span>
     </div>
@@ -59,8 +59,8 @@
       </label>
       <button id="reapplyAutoSplitBtn" type="button">現在の設定で自動区切りを再適用</button>
     </div>
-    <p class="note">前の歌詞ノート終了から次の歌詞ノート開始までの空きが指定値以上なら、読み込み時にあらかじめ区切られます。</p>
-    <div id="loadStatus" class="status hidden" style="margin-top:12px"></div>
+    <p class="note">前の歌詞ノート終了から次の歌詞ノート開始までの空きが指定値以上なら、読み込み時に通常の区切りとして改行を入れます。あとからクリックで編集できます。</p>
+    <div id="loadStatus" class="status" style="margin-top:12px">未読み込みです。</div>
   </section>
 
   <section>
@@ -74,11 +74,11 @@
       <button id="resetBtn" class="danger" type="button">リセット</button>
     </div>
     <p class="note">リロードやブックマークからの再訪問では、同じブラウザ内の作業データを復元します。別ブラウザ・別端末で使う場合は作業JSONを保存して読み込んでください。</p>
-    <div id="projectStatus" class="status hidden"></div>
+    <div id="projectStatus" class="status">作業JSONは未読み込みです。</div>
   </section>
 
   <section id="partsSection" class="hidden">
-    <h2>2. パートごとに区切り</h2>
+    <h2>2〜3. パートごとに区切り・表示用歌詞を入力</h2>
     <p class="note">各パートを統合せず、パートごとに独立して編集します。担当パートではない部分は表示用歌詞を空白にしてください。空白行はエクスポートしません。</p>
     <div id="partsContainer"></div>
   </section>
@@ -103,15 +103,9 @@
           <option value="lrc">歌詞同期用 .lrc</option>
         </select>
       </label>
-      <label id="fcpxTitleEffectLabel">FCPタイトル形式
-        <select id="fcpxTitleEffect">
-          <option value="basicTitle">基本のタイトル</option>
-          <option value="basicText">基本のテキスト</option>
-        </select>
-      </label>
       <button id="exportBtn" class="primary" type="button">選択形式で書き出し</button>
     </div>
-
+    <p class="note export-note">パート分け出力では、FCPXMLはパートごとに別レーン、Premiere XMLは別トラックにします。SRT/LRCはレーンを持てないため、パート名付き本文として出力します。まとめ出力では全パートの非空行を開始フレーム順に1本化します。</p>
     <div id="exportStatus" class="status" style="margin-top:12px">未出力です。</div>
   </section>
 </main>
@@ -119,7 +113,7 @@
 <script>
 (() => {
   'use strict';
-  const STORAGE_KEY = 'liricue_state_v2_multipart';
+  const STORAGE_KEY = 'voisona_lyrics_exporter_state_v2_multipart';
   const APP_VERSION = 2;
   const TICKS_PER_QUARTER_DEFAULT = 960;
   const FPS_OPTIONS = {
@@ -130,21 +124,7 @@
     '59.94p':  { label:'59.94p',  num:60000, den:1001, nominal:60, ntsc:true },
     '60p':     { label:'60p',     num:60,    den:1,    nominal:60, ntsc:false }
   };
-  const FCP_TITLE_EFFECTS = {
-    basicTitle: {
-      label:'基本のタイトル',
-      name:'Basic Title',
-      finalcutUid:'.../Titles.localized/Bumper:Opener.localized/Basic Title.localized/Basic Title.moti',
-      resolveUid:'.../Titles.localized/Basic Title.localized/Basic Title.moti'
-    },
-    basicText: {
-      label:'基本のテキスト',
-      name:'Basic Text',
-      finalcutUid:'.../Titles.localized/Basic Text.localized/Basic Text.moti',
-      resolveUid:'.../Titles.localized/Basic Title.localized/Basic Title.moti'
-    }
-  };
-  const state = { version:APP_VERSION, fpsKey:'60p', exportMode:'separated', exportType:'fcpx', fcpxTitleEffect:'basicTitle', autoSplit:{enabled:true,value:0.75,unit:'beats'}, parts:[] };
+  const state = { version:APP_VERSION, fpsKey:'60p', exportMode:'separated', exportType:'fcpx', autoSplit:{enabled:true,value:0.75,unit:'beats'}, parts:[] };
   const history = { undo:[], redo:[] };
   const rowSelection = { partId:null, selected:new Set(), anchor:null, clipboard:[] };
   let saveTimer = null;
@@ -154,7 +134,7 @@
     newFileInput:$('newFileInput'), addFileInput:$('addFileInput'), addFileBtn:$('addFileBtn'), projectInput:$('projectInput'), loadJsonBtn:$('loadJsonBtn'), dropZone:$('dropZone'), fpsSelect:$('fpsSelect'), savePill:$('savePill'), loadStatus:$('loadStatus'),
     partsSection:$('partsSection'), partsContainer:$('partsContainer'), exportSection:$('exportSection'),
     undoBtn:$('undoBtn'), redoBtn:$('redoBtn'), saveJsonBtn:$('saveJsonBtn'), resetBtn:$('resetBtn'), projectStatus:$('projectStatus'),
-    exportMode:$('exportMode'), exportType:$('exportType'), fcpxTitleEffect:$('fcpxTitleEffect'), fcpxTitleEffectLabel:$('fcpxTitleEffectLabel'), exportBtn:$('exportBtn'), exportStatus:$('exportStatus'), autoSplitEnabled:$('autoSplitEnabled'), autoSplitValue:$('autoSplitValue'), autoSplitUnit:$('autoSplitUnit'), reapplyAutoSplitBtn:$('reapplyAutoSplitBtn')
+    exportMode:$('exportMode'), exportType:$('exportType'), exportBtn:$('exportBtn'), exportStatus:$('exportStatus'), autoSplitEnabled:$('autoSplitEnabled'), autoSplitValue:$('autoSplitValue'), autoSplitUnit:$('autoSplitUnit'), reapplyAutoSplitBtn:$('reapplyAutoSplitBtn')
   };
 
   function init(){
@@ -177,8 +157,7 @@
     els.saveJsonBtn.addEventListener('click', () => { downloadText(makeFileStem()+'.project.json', JSON.stringify(projectData(), null, 2), 'application/json'); setStatus(els.projectStatus, '作業JSONを保存しました。', 'ok'); });
     els.resetBtn.addEventListener('click', resetAll);
     els.exportMode.addEventListener('change', () => { state.exportMode = els.exportMode.value; markSavedSoon(); });
-    els.exportType.addEventListener('change', () => { state.exportType = els.exportType.value; updateFcpxTitleEffectVisibility(); markSavedSoon(); });
-    els.fcpxTitleEffect.addEventListener('change', () => { state.fcpxTitleEffect = normalizeFcpxTitleEffect(els.fcpxTitleEffect.value); markSavedSoon(); });
+    els.exportType.addEventListener('change', () => { state.exportType = els.exportType.value; markSavedSoon(); });
     els.exportBtn.addEventListener('click', exportSelected);
     window.addEventListener('keydown', ev => {
       const mod = ev.ctrlKey || ev.metaKey; if (!mod) return;
@@ -202,16 +181,12 @@
   }
 
   function setStatus(el,text,kind=''){ el.className = 'status' + (kind ? ' '+kind : ''); el.textContent = text; }
-  function hideStatus(el){ el.className = 'status hidden'; el.textContent = ''; }
   function showWorkspace(){ els.partsSection.classList.toggle('hidden', state.parts.length === 0); els.exportSection.classList.toggle('hidden', state.parts.length === 0); }
-  function stripSourceMarkers(text){ return (text||'').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[%@$]/g,'').replace(/\s+/g,'').trim(); }
+  function stripVoisonaMarkers(text){ return (text||'').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[%@$]/g,'').replace(/\s+/g,'').trim(); }
   function toHiragana(text){ return (text||'').replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0)-0x60)); }
-  function sanitizeLyric(text){ return toHiragana(stripSourceMarkers(text)); }
+  function sanitizeLyric(text){ return toHiragana(stripVoisonaMarkers(text)); }
   function cleanAutoSplitValue(value){ const n=Number(value); return Number.isFinite(n) && n>=0 ? n : 0.75; }
   function autoSplitLabel(){ const cfg=state.autoSplit || {enabled:false,value:0.75,unit:'beats'}; const unitLabel=cfg.unit==='frames'?'フレーム':(cfg.unit==='seconds'?'秒':'拍'); return cfg.enabled ? `ON / ${cfg.value}${unitLabel}以上` : 'OFF'; }
-  function normalizeFcpxTitleEffect(value){ return FCP_TITLE_EFFECTS[value] ? value : 'basicTitle'; }
-  function fcpxTitleEffectOpt(){ return FCP_TITLE_EFFECTS[normalizeFcpxTitleEffect(state.fcpxTitleEffect)]; }
-  function updateFcpxTitleEffectVisibility(){ els.fcpxTitleEffectLabel.classList.toggle('hidden', els.exportType.value !== 'fcpx'); }
   function fpsOpt(){ return FPS_OPTIONS[state.fpsKey] || FPS_OPTIONS['60p']; }
   function secondsFromFrames(frames){ const f=fpsOpt(); return frames * f.den / f.num; }
   function framesFromSeconds(sec){ const f=fpsOpt(); return Math.round(sec * f.num / f.den); }
@@ -318,8 +293,9 @@
   }
   function afterPartsLoaded(message){
     clearSelection(); updateAllFrames(); showWorkspace(); renderAll(); markSavedSoon();
-    hideStatus(els.loadStatus);
-    hideStatus(els.projectStatus);
+    const summary=state.parts.map(p=>`${p.name}: ${p.tokens.length}トークン`).join('\n');
+    setStatus(els.loadStatus, `${message}\nFPS: ${state.fpsKey}\n自動区切り: ${autoSplitLabel()}\n${summary}`, 'ok');
+    setStatus(els.projectStatus, '作業中です。', '');
   }
   async function handleProjectFile(file){
     if(!file) return;
@@ -375,9 +351,6 @@
 
   function renderAll(){
     els.fpsSelect.value=state.fpsKey; els.exportMode.value=state.exportMode || 'separated'; els.exportType.value=state.exportType || 'fcpx';
-    state.fcpxTitleEffect = normalizeFcpxTitleEffect(state.fcpxTitleEffect);
-    els.fcpxTitleEffect.value = state.fcpxTitleEffect;
-    updateFcpxTitleEffectVisibility();
     state.autoSplit = normalizeAutoSplitConfig(state.autoSplit);
     els.autoSplitEnabled.checked = !!state.autoSplit.enabled; els.autoSplitValue.value = state.autoSplit.value; els.autoSplitUnit.value = state.autoSplit.unit;
     els.reapplyAutoSplitBtn.disabled = state.parts.length === 0;
@@ -392,23 +365,27 @@
           <div class="part-title">
             <h3 style="margin:0">パート ${partIndex+1}</h3>
             <input class="part-name" type="text" value="${escHTML(part.name)}" aria-label="パート名">
+            <span class="pill">${escHTML(part.sourceName || '-')}</span>
           </div>
           <div class="row">
             <button type="button" class="clear-breaks">区切りを全解除</button>
             <button type="button" class="delete-part danger">このパートを削除</button>
           </div>
         </div>
+        <div class="part-summary"><span class="pill">${escHTML(part.meta.parser || '-')}</span><span class="pill token-count">${part.tokens.length}トークン</span><span class="pill segment-count">${currentSegments(part).length}行</span><span class="pill">テンポ ${escHTML(part.meta.tempo || '-')} BPM</span></div>
         <div class="step-block split-step">
-          <h3>2. パートごとに区切り</h3>
-          <p class="note">「・」をクリックすると改行ができます。</p>
+          <h3>2. 解析した連続歌詞を区切る</h3>
+          <p class="note">歌唱側の文字は編集不可です。「・」をクリックして、表示行の境界だけを指定します。</p>
           <div class="editor token-editor"></div>
         </div>
         <div class="step-block display-step">
-          <h3>3.表示用歌詞を入力</h3>
+          <h3>3. 表示用歌詞を入力</h3>
           <p class="note">入力欄に複数行テキストを貼り付けると、貼り付け先の行から順番に流し込みます。空行は空白として扱い、行数が足りない場合は入る分だけ反映します。</p>
+          <p class="note">歌唱側の文字内にカーソルを置き、トークン境界で <span class="kbd">Enter</span> を押すとその位置で分割できます。1トークンの途中では分割できません。分割した2行の表示用歌詞は空白になります。</p>
+          <p class="note">連続した2行以上を選択すると、選択した各行の「統合」ボタンからその場で統合できます。表示用歌詞は自動で連結します。</p>
           <h3>表示用歌詞テーブル</h3>
-          <div class="table-wrap"><table class="segments-table"><thead><tr><th>行</th><th>歌唱側・編集不可</th><th>開始</th><th>終了</th><th>長さ</th><th>表示用歌詞・編集可</th></tr></thead><tbody></tbody></table></div>
-          <p class="note">行番号クリックで選択、Shiftクリックで範囲選択、⌘/Ctrlクリックで追加・解除。選択行は <span class="kbd">⌘C</span> / <span class="kbd">⌘X</span> / <span class="kbd">⌘V</span> で表示用歌詞だけをコピー・切り取り・貼り付けできます。</p>
+          <div class="table-wrap"><table class="segments-table"><thead><tr><th>行</th><th>操作</th><th>歌唱側・編集不可</th><th>開始</th><th>終了</th><th>長さ</th><th>表示用歌詞・編集可</th></tr></thead><tbody></tbody></table></div>
+          <p class="note">行番号クリックで選択、Shiftクリックで範囲選択、⌘/Ctrlクリックで追加・解除。連続した2行以上を選択すると、選択行それぞれの「統合」が有効になります。選択行は <span class="kbd">⌘C</span> / <span class="kbd">⌘X</span> / <span class="kbd">⌘V</span> で表示用歌詞だけをコピー・切り取り・貼り付けできます。</p>
         </div>
       `;
       els.partsContainer.appendChild(wrap);
@@ -444,9 +421,26 @@
     const segments=currentSegments(part); const tbody=wrap.querySelector('tbody'); tbody.innerHTML=''; normalizeSelection(segments.length, part.id);
     for(const seg of segments){
       const tr=document.createElement('tr'); tr.dataset.partId=part.id; tr.dataset.line=String(seg.line-1); if(rowSelection.partId===part.id && rowSelection.selected.has(seg.line-1)) tr.classList.add('selected');
-      tr.innerHTML=`<td class="row-index" title="クリックで行選択">${seg.line}</td><td class="singing-cell">${escHTML(seg.singingText)}</td><td><span class="mono">${seg.startFrame}f</span><br><span class="small mono">${frameToTimecode(seg.startFrame)}</span></td><td><span class="mono">${seg.endFrameExclusive}f</span><br><span class="small mono">${frameToTimecode(seg.endFrameExclusive)}</span><br><span class="small">最終表示 ${seg.endFrameExclusive-1}f</span></td><td><span class="mono">${seg.durationFrames}f</span><br><span class="small">${secondsFromFrames(seg.durationFrames).toFixed(3)}秒</span></td><td><input type="text" value="${escHTML(seg.displayText)}" data-part-id="${part.id}" data-line="${seg.line-1}" placeholder="表示用歌詞を入力。空白なら出力しません"></td>`;
+      tr.innerHTML=`<td class="row-index" title="クリックで行選択">${seg.line}</td><td><button type="button" class="merge-row" data-part-id="${part.id}" data-line="${seg.line-1}" disabled>統合</button></td><td class="singing-cell"><span class="singing-caret" contenteditable="true" spellcheck="false" role="textbox" aria-label="歌唱側歌詞。トークン境界にカーソルを置いてEnterで分割" data-part-id="${part.id}" data-line="${seg.line-1}">${escHTML(seg.singingText)}</span><div class="small">token ${seg.start+1}〜${seg.end+1}</div></td><td><span class="mono">${seg.startFrame}f</span><br><span class="small mono">${frameToTimecode(seg.startFrame)}</span></td><td><span class="mono">${seg.endFrameExclusive}f</span><br><span class="small mono">${frameToTimecode(seg.endFrameExclusive)}</span><br><span class="small">最終表示 ${seg.endFrameExclusive-1}f</span></td><td><span class="mono">${seg.durationFrames}f</span><br><span class="small">${secondsFromFrames(seg.durationFrames).toFixed(3)}秒</span></td><td><input type="text" value="${escHTML(seg.displayText)}" data-part-id="${part.id}" data-line="${seg.line-1}" placeholder="表示用歌詞を入力。空白なら出力しません"></td>`;
       tr.querySelector('.row-index').addEventListener('click',ev=>selectRow(part.id,seg.line-1,ev));
+      const mergeBtn=tr.querySelector('.merge-row');
+      mergeBtn.addEventListener('click',ev=>{ ev.preventDefault(); ev.stopPropagation(); mergeSelectedRows(part); });
       tr.addEventListener('click',ev=>{ if(ev.target && ev.target.closest && ev.target.closest('input')) return; if(ev.target && ev.target.classList && ev.target.classList.contains('row-index')) return; selectRow(part.id,seg.line-1,ev); });
+
+      const singing=tr.querySelector('.singing-caret');
+      singing.addEventListener('beforeinput',ev=>ev.preventDefault());
+      singing.addEventListener('paste',ev=>ev.preventDefault());
+      singing.addEventListener('drop',ev=>ev.preventDefault());
+      singing.addEventListener('cut',ev=>ev.preventDefault());
+      singing.addEventListener('keydown',ev=>{
+        if(ev.key==='Enter'){
+          ev.preventDefault();
+          splitSegmentAtCaret(part,seg,singing);
+          return;
+        }
+        if(ev.key==='Backspace' || ev.key==='Delete' || (!ev.metaKey && !ev.ctrlKey && !ev.altKey && ev.key.length===1)) ev.preventDefault();
+      });
+
       const input=tr.querySelector('input');
       input.addEventListener('focus',()=>{ input.dataset.before=JSON.stringify(snapshot()); clearSelection(); updateRowSelectionUI(); });
       input.addEventListener('paste',ev=>handleDisplayInputPaste(ev,part,input));
@@ -454,7 +448,86 @@
       input.addEventListener('blur',()=>{ if(input.dataset.before){ pushSpecificSnapshot(JSON.parse(input.dataset.before)); delete input.dataset.before; }});
       tbody.appendChild(tr);
     }
+    updateMergeButtons();
   }
+
+  function caretOffsetWithin(el){
+    const sel=window.getSelection();
+    if(!sel || !sel.rangeCount) return null;
+    const range=sel.getRangeAt(0);
+    if(!el.contains(range.startContainer)) return null;
+    const pre=range.cloneRange();
+    pre.selectNodeContents(el);
+    pre.setEnd(range.startContainer,range.startOffset);
+    return pre.toString().length;
+  }
+
+  function tokenBoundaryAtOffset(part,seg,offset){
+    if(!Number.isInteger(offset) || offset<=0 || offset>=seg.singingText.length) return null;
+    let chars=0;
+    for(let i=seg.start;i<seg.end;i++){
+      chars += String(part.tokens[i].text || '').length;
+      if(chars===offset) return i;
+      if(chars>offset) return null;
+    }
+    return null;
+  }
+
+  function splitSegmentAtCaret(part,seg,el){
+    const offset=caretOffsetWithin(el);
+    const boundaryIndex=tokenBoundaryAtOffset(part,seg,offset);
+    if(boundaryIndex===null){
+      setStatus(els.projectStatus,'この位置では分割できません。トークンとトークンの境界にカーソルを置いてください。','warn');
+      return;
+    }
+    const lineIndex=seg.line-1;
+    pushHistory();
+    part.boundaryAfter[boundaryIndex]=true;
+    part.displayTexts.splice(lineIndex,1,'','');
+    clearSelection();
+    const targetWrap=partWrap(part.id);
+    if(targetWrap){
+      renderPartEditor(targetWrap,part);
+      const segmentCount=targetWrap.querySelector('.segment-count'); if(segmentCount) segmentCount.textContent=`${currentSegments(part).length}行`;
+      renderPartSegments(targetWrap,part);
+    }else renderAll();
+    markSavedSoon();
+    setStatus(els.projectStatus,'カーソル位置で行を分割しました。表示用歌詞は空白になりました。','ok');
+  }
+
+  function selectedRowIndices(partId){
+    if(rowSelection.partId!==partId) return [];
+    return Array.from(rowSelection.selected).sort((a,b)=>a-b);
+  }
+
+  function areContiguous(indices){
+    return indices.length>=2 && indices.every((value,i)=>i===0 || value===indices[i-1]+1);
+  }
+
+  function mergeSelectedRows(part){
+    const indices=selectedRowIndices(part.id);
+    if(!areContiguous(indices)){
+      setStatus(els.projectStatus,'統合する連続した2行以上を選択してください。','warn');
+      return;
+    }
+    const segments=currentSegments(part);
+    const start=indices[0], end=indices[indices.length-1];
+    if(start<0 || end>=segments.length) return;
+    const mergedDisplay=indices.map(i=>part.displayTexts[i] ?? '').join('');
+    pushHistory();
+    for(let i=start;i<end;i++) part.boundaryAfter[segments[i].end]=false;
+    part.displayTexts.splice(start,end-start+1,mergedDisplay);
+    rowSelection.partId=part.id; rowSelection.selected.clear(); rowSelection.selected.add(start); rowSelection.anchor=start;
+    const targetWrap=partWrap(part.id);
+    if(targetWrap){
+      renderPartEditor(targetWrap,part);
+      const segmentCount=targetWrap.querySelector('.segment-count'); if(segmentCount) segmentCount.textContent=`${currentSegments(part).length}行`;
+      renderPartSegments(targetWrap,part);
+    }else renderAll();
+    markSavedSoon();
+    setStatus(els.projectStatus,`${indices.length}行を統合しました。`,'ok');
+  }
+
   function partWrap(partId){
     return els.partsContainer.querySelector(`article.part[data-part-id="${partId}"]`);
   }
@@ -496,6 +569,7 @@
     }else{
       renderPartEditor(wrap,part);
     }
+    const segmentCount=wrap.querySelector('.segment-count'); if(segmentCount) segmentCount.textContent=`${currentSegments(part).length}行`;
     renderPartSegments(wrap,part);
     updateUndoRedoButtons();
   }
@@ -549,6 +623,16 @@
   }
   function updateRowSelectionUI(){
     document.querySelectorAll('.segments-table tr').forEach(tr=>{ const pid=tr.dataset.partId; const idx=Number(tr.dataset.line); tr.classList.toggle('selected', pid===rowSelection.partId && rowSelection.selected.has(idx)); });
+    updateMergeButtons();
+  }
+  function updateMergeButtons(){
+    document.querySelectorAll('.merge-row').forEach(btn=>{
+      const partId=btn.dataset.partId;
+      const line=Number(btn.dataset.line);
+      const indices=selectedRowIndices(partId);
+      btn.disabled=!(areContiguous(indices) && indices.includes(line));
+      btn.title=btn.disabled ? '連続した2行以上を選択すると統合できます' : '選択した行を統合';
+    });
   }
   function handleRowClipboardShortcut(ev,key){
     if(!rowSelection.partId || !rowSelection.selected.size) return false;
@@ -569,25 +653,25 @@
   function updateUndoRedoButtons(){ els.undoBtn.disabled=!history.undo.length; els.redoBtn.disabled=!history.redo.length; }
 
   function projectData(){
-    return {version:APP_VERSION,fpsKey:state.fpsKey,exportMode:state.exportMode||'separated',exportType:state.exportType||'fcpx',fcpxTitleEffect:normalizeFcpxTitleEffect(state.fcpxTitleEffect),autoSplit:normalizeAutoSplitConfig(state.autoSplit),parts:state.parts.map(p=>({id:p.id,name:p.name,sourceName:p.sourceName,tokens:p.tokens,boundaryAfter:p.boundaryAfter,displayTexts:p.displayTexts,meta:p.meta}))};
+    return {version:APP_VERSION,fpsKey:state.fpsKey,exportMode:state.exportMode||'separated',exportType:state.exportType||'fcpx',autoSplit:normalizeAutoSplitConfig(state.autoSplit),parts:state.parts.map(p=>({id:p.id,name:p.name,sourceName:p.sourceName,tokens:p.tokens,boundaryAfter:p.boundaryAfter,displayTexts:p.displayTexts,meta:p.meta}))};
   }
   function hydrateProject(obj,message,fromHistory=false){
     if(!obj || !Array.isArray(obj.parts)){
       if(obj && Array.isArray(obj.tokens)){
-        obj={version:APP_VERSION,fpsKey:obj.fpsKey||'60p',exportMode:'separated',exportType:'fcpx',fcpxTitleEffect:'basicTitle',autoSplit:normalizeAutoSplitConfig(obj.autoSplit),parts:[{id:cryptoRandomId(),name:guessPartName(obj.fileName||'restored'),sourceName:obj.fileName||'restored',tokens:obj.tokens,boundaryAfter:obj.boundaryAfter||[],displayTexts:obj.displayTexts||[],meta:obj.meta||{}}]};
+        obj={version:APP_VERSION,fpsKey:obj.fpsKey||'60p',exportMode:'separated',exportType:'fcpx',autoSplit:normalizeAutoSplitConfig(obj.autoSplit),parts:[{id:cryptoRandomId(),name:guessPartName(obj.fileName||'restored'),sourceName:obj.fileName||'restored',tokens:obj.tokens,boundaryAfter:obj.boundaryAfter||[],displayTexts:obj.displayTexts||[],meta:obj.meta||{}}]};
       } else throw new Error('作業データ形式ではありません。');
     }
-    clearSelection(); state.version=obj.version||APP_VERSION; state.fpsKey=FPS_OPTIONS[obj.fpsKey] ? obj.fpsKey : '60p'; state.exportMode=obj.exportMode||'separated'; state.exportType=obj.exportType||'fcpx'; state.fcpxTitleEffect=normalizeFcpxTitleEffect(obj.fcpxTitleEffect); state.autoSplit=normalizeAutoSplitConfig(obj.autoSplit);
+    clearSelection(); state.version=obj.version||APP_VERSION; state.fpsKey=FPS_OPTIONS[obj.fpsKey] ? obj.fpsKey : '60p'; state.exportMode=obj.exportMode||'separated'; state.exportType=obj.exportType||'fcpx'; state.autoSplit=normalizeAutoSplitConfig(obj.autoSplit);
     state.parts=(obj.parts||[]).map(p=>({id:p.id||cryptoRandomId(),name:p.name||guessPartName(p.sourceName||'パート'),sourceName:p.sourceName||'',tokens:p.tokens||[],boundaryAfter:p.boundaryAfter||new Array(Math.max(0,(p.tokens||[]).length-1)).fill(false),displayTexts:p.displayTexts||[''],meta:p.meta||{}}));
     updateAllFrames(); allPartsNormalized(); renderAll(); showWorkspace(); if(!fromHistory){ history.undo.length=0; history.redo.length=0; } updateUndoRedoButtons(); markSavedSoon();
-    hideStatus(els.loadStatus); hideStatus(els.projectStatus);
+    setStatus(els.loadStatus, `${message}\nパート数: ${state.parts.length} / FPS: ${state.fpsKey}\n自動区切り: ${autoSplitLabel()}`, 'ok'); setStatus(els.projectStatus, message, 'ok');
   }
   function markSavedSoon(){
     els.savePill.textContent='自動保存: 保存中…'; clearTimeout(saveTimer); saveTimer=setTimeout(()=>{ try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(projectData())); els.savePill.textContent='自動保存: 保存済み'; }catch(err){ els.savePill.textContent='自動保存: 失敗'; } },300);
   }
   function resetAll(){
     if(!confirm('現在の作業内容をすべて削除します。\nこの操作は元に戻せません。\nリセットしますか？')) return;
-    localStorage.removeItem(STORAGE_KEY); history.undo.length=0; history.redo.length=0; clearSelection(); state.version=APP_VERSION; state.fpsKey='60p'; state.exportMode='separated'; state.exportType='fcpx'; state.fcpxTitleEffect='basicTitle'; state.autoSplit={enabled:true,value:0.75,unit:'beats'}; state.parts=[]; renderAll();
+    localStorage.removeItem(STORAGE_KEY); history.undo.length=0; history.redo.length=0; clearSelection(); state.version=APP_VERSION; state.fpsKey='60p'; state.exportMode='separated'; state.exportType='fcpx'; state.autoSplit={enabled:true,value:0.75,unit:'beats'}; state.parts=[]; renderAll();
     setStatus(els.loadStatus,'未読み込みです。'); setStatus(els.projectStatus,'リセットしました。','ok'); setStatus(els.exportStatus,'未出力です。'); els.savePill.textContent='自動保存: 待機中';
   }
 
@@ -625,12 +709,11 @@
     else if(type==='tsv'){ name=stem+(mode==='separated'?'_parts_check.tsv':'_merged_check.tsv'); text=generateTSV(mode); mime='text/tab-separated-values'; }
     else if(type==='srt'){ name=stem+(mode==='separated'?'_parts.srt':'_merged.srt'); text=generateSRT(mode); mime='application/x-subrip'; }
     else { name=stem+(mode==='separated'?'_parts.lrc':'_merged.lrc'); text=generateLRC(mode); mime='text/plain'; }
-    const effectInfo = type==='fcpx' ? ` / FCPタイトル形式: ${fcpxTitleEffectOpt().label}` : '';
-    downloadText(name,text,mime); setStatus(els.exportStatus,`${name} を書き出しました。\n出力件数: ${items.length} / モード: ${mode==='separated'?'パート分け':'まとめ'}${effectInfo}`,'ok');
+    downloadText(name,text,mime); setStatus(els.exportStatus,`${name} を書き出しました。\n出力件数: ${items.length} / モード: ${mode==='separated'?'パート分け':'まとめ'}`,'ok');
   }
   function makeFileStem(){
-    if(state.parts.length===1) return (state.parts[0].sourceName || state.parts[0].name || 'liricue_lyrics').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|\s]+/g,'_') || 'liricue_lyrics';
-    return 'liricue_lyrics_' + state.parts.length + 'parts';
+    if(state.parts.length===1) return (state.parts[0].sourceName || state.parts[0].name || 'voisona_lyrics').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|\s]+/g,'_') || 'voisona_lyrics';
+    return 'voisona_lyrics_' + state.parts.length + 'parts';
   }
   function outputTextForMode(item,mode,format){
     if(mode==='separated' && (format==='srt' || format==='lrc')) return `${item.partName}：${item.text}`;
@@ -645,19 +728,17 @@
     return exportItems(mode).map((item,i)=>`${i+1}\n${secToSrtTime(secondsFromFrames(item.startFrame))} --> ${secToSrtTime(secondsFromFrames(item.endFrameExclusive))}\n${outputTextForMode(item,mode,'srt')}\n`).join('\n');
   }
   function generateLRC(mode){
-    const header=[`[ti:${makeFileStem()}]`,`[re:LiriCue]`,`[ve:${APP_VERSION}]`];
+    const header=[`[ti:${makeFileStem()}]`,`[re:Voisona Lyrics Title Exporter]`,`[ve:${APP_VERSION}]`];
     const body=exportItems(mode).map(item=>`[${secToLrcTime(secondsFromFrames(item.startFrame))}]${outputTextForMode(item,mode,'lrc').replace(/\r?\n/g,' / ')}`);
     return header.concat(body).join('\r\n')+'\r\n';
   }
   function laneForItem(item,mode){ return mode==='separated' ? item.partIndex + 1 : 1; }
   function generateFCPXML(mode,target){
     const items=exportItems(mode); const lastEnd=Math.max(...items.map(s=>s.endFrameExclusive),1); const projectName=escXML(makeFileStem() + (target==='resolve' ? ' Resolve Lyrics' : ' Final Cut Lyrics'));
-    const selectedEffect = target==='resolve' ? FCP_TITLE_EFFECTS.basicTitle : fcpxTitleEffectOpt();
-    const selectedUid = target==='resolve' ? selectedEffect.resolveUid : selectedEffect.finalcutUid;
-    const titleEffect = `<effect id="r2" name="${escXML(selectedEffect.name)}" uid="${escXML(selectedUid)}"/>`;
+    const titleEffect=target==='resolve' ? '<effect id="r2" name="Basic Title" uid=".../Titles.localized/Basic Title.localized/Basic Title.moti"/>' : '<effect id="r2" name="Basic Title" uid=".../Titles.localized/Bumper:Opener.localized/Basic Title.localized/Basic Title.moti"/>';
     const titles=items.map((item,i)=>{ const text=escXML(item.text); const lane=laneForItem(item,mode); return `              <title ref="r2" lane="${lane}" name="${text || 'Lyrics'}" offset="${frameExpr(item.startFrame)}" start="0s" duration="${frameExpr(item.durationFrames)}">\n                <text>\n                  <text-style ref="ts${i+1}">${text}</text-style>\n                </text>\n                <text-style-def id="ts${i+1}">\n                  <text-style font="Hiragino Sans" fontSize="72" alignment="center"/>\n                </text-style-def>\n              </title>`; }).join('\n');
     const formatName=`FFVideoFormat1080p${fpsOpt().nominal}`;
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE fcpxml>\n<fcpxml version="1.10">\n  <resources>\n    <format id="r1" name="${formatName}" frameDuration="${frameDurationExpr()}" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)"/>\n    ${titleEffect}\n  </resources>\n  <library>\n    <event name="LiriCue">\n      <project name="${projectName}">\n        <sequence format="r1" duration="${frameExpr(lastEnd)}" tcStart="0s" tcFormat="NDF">\n          <spine>\n            <gap name="Gap" offset="0s" start="0s" duration="${frameExpr(lastEnd)}">\n${titles}\n            </gap>\n          </spine>\n        </sequence>\n      </project>\n    </event>\n  </library>\n</fcpxml>\n`;
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE fcpxml>\n<fcpxml version="1.10">\n  <resources>\n    <format id="r1" name="${formatName}" frameDuration="${frameDurationExpr()}" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)"/>\n    ${titleEffect}\n  </resources>\n  <library>\n    <event name="Voisona Lyrics">\n      <project name="${projectName}">\n        <sequence format="r1" duration="${frameExpr(lastEnd)}" tcStart="0s" tcFormat="NDF">\n          <spine>\n            <gap name="Gap" offset="0s" start="0s" duration="${frameExpr(lastEnd)}">\n${titles}\n            </gap>\n          </spine>\n        </sequence>\n      </project>\n    </event>\n  </library>\n</fcpxml>\n`;
   }
   function rateXML(indent='      '){ const f=fpsOpt(); return `${indent}<rate>\n${indent}  <timebase>${f.nominal}</timebase>\n${indent}  <ntsc>${f.ntsc ? 'TRUE' : 'FALSE'}</ntsc>\n${indent}</rate>`; }
   function generatePremiereXML(mode){
